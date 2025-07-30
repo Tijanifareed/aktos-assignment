@@ -18,7 +18,7 @@ class ConsumerListView(APIView):
           page_size = request.query_params.get('page_size', 10) #page size
           
           
-          consumers = Consumer.objects.all()
+          consumers = Consumer.objects.all().order_by('id')
           if min_balance:
             consumers = consumers.filter(balance__gte=min_balance)
           if max_balance:
