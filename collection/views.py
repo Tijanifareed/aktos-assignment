@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.http import JsonResponse
 from django.core.paginator import Paginator
+import csv
+from io import StringIO
 
 class ConsumerListView(APIView):
      def get(self, request):
@@ -53,6 +55,39 @@ class ConsumerListView(APIView):
                     "next_page": page_obj.next_page_number() if page_obj.has_next() else None,
                     "previous_page": page_obj.previous_page_number() if page_obj.has_previous() else None
                })
+          
+          
+class CSVUploadView(APIView):
+     def post(self, request):
+          if 'file' not in request.FILES:
+               return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
+          csv_file = request.FILES['file']
+          if not csv_file.name.endswith('.csv'):
+            return Response({"error": "File must be a CSV"}, status=status.HTTP_400_BAD_REQUEST)
 
-
-# Create your views here.
+          try:
+               file_data = csv_file.read().decode('utf-8')
+               csv_reader = csv.DictReader(StringIO(file_data))
+               #validate required fields
+               required_fields = ['client reference no', 'balance', 'status', 'consumer name', 'consumer address', 'ssn']
+               if not all(field in csv_reader.fieldnames for field in required_fields):
+                    return Response({"error": "CSV missing required fields"}, status=status.HTTP_400_BAD_REQUEST)
+               
+               for row in csv_reader:
+                    balance = float(row['balance'])
+                    Consumer.objects.update_or_create(
+                         consumer_name=row['consumer name'],
+                         client=row['client reference no'],
+                         defaults={
+                              'balance': balance,
+                              'status': row['status'],
+                              'consumer_address': row['consumer address'],
+                              'ssn': row['ssn']
+                         }
+                    )
+               return Response({"message": "CSV processed successfully"}, status=status.HTTP_201_CREATED)     
+               
+          
+          except Exception as exception:
+               return Response({"error": str(exception)}, status=status.HTTP_400_BAD_REQUEST)
+               # Create your views here.
