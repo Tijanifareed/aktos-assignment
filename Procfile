@@ -1,1 +1,0 @@
-web: gunicorn aktos_collection.wsgi --log-file -
