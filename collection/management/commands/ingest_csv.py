@@ -18,10 +18,11 @@ class Command(BaseCommand):
        
           with open(csv_file_path, 'r', encoding='utf-8') as file:
                reader = csv.DictReader(file)
+               self.stdout.write(self.style.WARNING(f"CSV headers: {reader.fieldnames}"))
                for row in reader:
                     balance = float(row['balance'])
                     Consumer.objects.update_or_create(
-                         Consumer_name=row['consumer name'],
+                         consumer_name=row['consumer name'],
                          client=row['client reference no'],
                          defaults={
                               'balance': balance,
