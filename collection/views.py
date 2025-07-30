@@ -10,6 +10,7 @@ from io import StringIO
 
 class ConsumerListView(APIView):
      def get(self, request):
+          # Get query parameters
           min_balance = request.query_params.get('min_balance')
           max_balance = request.query_params.get('max_balance')
           consumer_name = request.query_params.get('consumer_name')
@@ -17,7 +18,7 @@ class ConsumerListView(APIView):
           page = request.query_params.get('page', 1)  #default page
           page_size = request.query_params.get('page_size', 10) #page size
           
-          
+          # Filter queryset
           consumers = Consumer.objects.all().order_by('id')
           if min_balance:
             consumers = consumers.filter(balance__gte=min_balance)
@@ -28,13 +29,14 @@ class ConsumerListView(APIView):
           if status_param:
             consumers = consumers.filter(status__iexact=status_param)
             
+          # Pagination  
           paginator = Paginator(consumers, page_size)  
           try:
                page_obj = paginator.page(page)
           except:
                return Response({"error": "Invalid page number"}, status=status.HTTP_400_BAD_REQUEST)     
             
-            
+          # Serialize data  
           data = [
                {
                     'id': consumer.id,
