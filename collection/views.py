@@ -7,6 +7,10 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator
 import csv
 from io import StringIO
+from io import TextIOWrapper
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ConsumerListView(APIView):
      def get(self, request):
@@ -68,8 +72,9 @@ class CSVUploadView(APIView):
             return Response({"error": "File must be a CSV"}, status=status.HTTP_400_BAD_REQUEST)
 
           try:
-               file_data = csv_file.read().decode('utf-8')
-               csv_reader = csv.DictReader(StringIO(file_data))
+               file_wrapper = TextIOWrapper(csv_file, encoding='utf-8')
+               # file_data = csv_file.read().decode('utf-8')
+               csv_reader = csv.DictReader(file_wrapper)
                #validate required fields
                required_fields = ['client reference no', 'balance', 'status', 'consumer name', 'consumer address', 'ssn']
                if not all(field in csv_reader.fieldnames for field in required_fields):
@@ -77,24 +82,28 @@ class CSVUploadView(APIView):
                
                consumers_to_create = []
                for row in csv_reader:
-                    balance = float(row['balance'])
-                    consumers_to_create.append(
-                         Consumer(
-                              consumer_name=row['consumer name'],
-                              client=row['client reference no'],
-                              balance= balance,
-                              status= row['status'],
-                              consumer_address= row['consumer address'],
-                              ssn= row['ssn']
+                    try:
+                         balance = float(row['balance'])
+                         consumers_to_create.append(
+                              Consumer(
+                                   consumer_name=row['consumer name'],
+                                   client=row['client reference no'],
+                                   balance= balance,
+                                   status= row['status'],
+                                   consumer_address= row['consumer address'],
+                                   ssn= row['ssn']
+                              )
+                    
                          )
-                    
-                    )
-                    
-               if consumers_to_create:
-                    Consumer.objects.bulk_create(consumers_to_create, ignore_conflicts=True)
-               return Response({"message": "CSV processed successfully"}, status=status.HTTP_201_CREATED)     
+                    except (ValueError, KeyError) as e:
+                         logger.error(f'Error processing row{row}: {str(e)}')
+                         continue     
+                         if consumers_to_create:
+                              Consumer.objects.bulk_create(consumers_to_create, ignore_conflicts=True)
+                         return Response({"message": "CSV processed successfully"}, status=status.HTTP_201_CREATED)     
                
           
           except Exception as exception:
+               logger.error(f"Upload failed: {str(exception)}")
                return Response({"error": str(exception)}, status=status.HTTP_400_BAD_REQUEST)
                # Create your views here.
