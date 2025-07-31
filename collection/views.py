@@ -75,18 +75,23 @@ class CSVUploadView(APIView):
                if not all(field in csv_reader.fieldnames for field in required_fields):
                     return Response({"error": "CSV missing required fields"}, status=status.HTTP_400_BAD_REQUEST)
                
+               consumers_to_create = []
                for row in csv_reader:
                     balance = float(row['balance'])
-                    Consumer.objects.update_or_create(
-                         consumer_name=row['consumer name'],
-                         client=row['client reference no'],
-                         defaults={
-                              'balance': balance,
-                              'status': row['status'],
-                              'consumer_address': row['consumer address'],
-                              'ssn': row['ssn']
-                         }
+                    consumers_to_create.append(
+                         Consumer(
+                              consumer_name=row['consumer name'],
+                              client=row['client reference no'],
+                              balance= balance,
+                              status= row['status'],
+                              consumer_address= row['consumer address'],
+                              ssn= row['ssn']
+                         )
+                    
                     )
+                    
+               if consumers_to_create:
+                    Consumer.objects.bulk_create(consumers_to_create, ignore_conflicts=True)
                return Response({"message": "CSV processed successfully"}, status=status.HTTP_201_CREATED)     
                
           
