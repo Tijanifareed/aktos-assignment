@@ -62,7 +62,6 @@ class ConsumerListView(APIView):
                     "previous_page": page_obj.previous_page_number() if page_obj.has_previous() else None
                })
           
-          
 class CSVUploadView(APIView):
      def post(self, request):
           if 'file' not in request.FILES:
@@ -73,37 +72,34 @@ class CSVUploadView(APIView):
 
           try:
                file_wrapper = TextIOWrapper(csv_file, encoding='utf-8')
-               # file_data = csv_file.read().decode('utf-8')
                csv_reader = csv.DictReader(file_wrapper)
-               #validate required fields
                required_fields = ['client reference no', 'balance', 'status', 'consumer name', 'consumer address', 'ssn']
                if not all(field in csv_reader.fieldnames for field in required_fields):
                     return Response({"error": "CSV missing required fields"}, status=status.HTTP_400_BAD_REQUEST)
-               
+
                consumers_to_create = []
                for row in csv_reader:
                     try:
                          balance = float(row['balance'])
                          consumers_to_create.append(
                               Consumer(
-                                   consumer_name=row['consumer name'],
-                                   client=row['client reference no'],
-                                   balance= balance,
-                                   status= row['status'],
-                                   consumer_address= row['consumer address'],
-                                   ssn= row['ssn']
-                              )
-                    
-                         )
+                            consumer_name=row['consumer name'],
+                            client=row['client reference no'],
+                            balance=balance,
+                            status=row['status'],
+                            consumer_address=row['consumer address'],
+                            ssn=row['ssn']
+                        )
+                    )
                     except (ValueError, KeyError) as e:
-                         logger.error(f'Error processing row{row}: {str(e)}')
-                         continue     
-                         if consumers_to_create:
-                              Consumer.objects.bulk_create(consumers_to_create, ignore_conflicts=True)
-                         return Response({"message": "CSV processed successfully"}, status=status.HTTP_201_CREATED)     
-               
-          
-          except Exception as exception:
-               logger.error(f"Upload failed: {str(exception)}")
-               return Response({"error": str(exception)}, status=status.HTTP_400_BAD_REQUEST)
-               # Create your views here.
+                         logger.error(f"Error processing row {row}: {str(e)}")
+                         continue
+               if consumers_to_create:
+                    Consumer.objects.bulk_create(consumers_to_create, ignore_conflicts=True)
+               else:
+                    return Response({"message": "No new data to process"}, status=status.HTTP_200_OK)
+               return Response({"message": "CSV processed successfully"}, status=status.HTTP_201_CREATED)
+        
+          except Exception as e:
+               logger.error(f"Upload failed: {str(e)}")
+               return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
